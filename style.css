@@ -1,0 +1,81 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    max-width: 500px;
+    width: 100%;
+}
+
+h1 {
+    text-align: center;
+    margin-top: 0;
+    color: #2c3e50;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+select {
+    padding: 12px;
+    font-size: 16px; /* 16px prevents iOS Safari from auto-zooming */
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fafafa;
+    cursor: pointer;
+}
+
+.player-section {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+audio {
+    width: 100%;
+    outline: none;
+}
+
+.info-section {
+    background-color: #eef2f5;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #3498db;
+}
+
+.info-section h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.info-section p {
+    margin: 0;
+    font-style: italic;
+    color: #444;
+}
