@@ -3,20 +3,20 @@
 const musicData = {
     "Opening Number": {
         "Verse 1": {
-            "Soprano": { id: "1aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Sarah", "Emily", "Jessica"] },
-            "Alto": { id: "2aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Amanda", "Rachel"] },
-            "Tenor": { id: "3aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Mike", "John"] }
+            "Soprano": { id: "1aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
+            "Alto": { id: "2aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
+            "Tenor": { id: "3aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
         },
         "Chorus": {
-            "Soprano": { id: "4aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Sarah", "Emily", "Jessica"] },
-            "Alto": { id: "5aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Amanda", "Rachel"] },
-            "Tenor": { id: "6aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Mike", "John"] }
+            "Soprano": { id: "4aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
+            "Alto": { id: "5aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
+            "Tenor": { id: "6aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
         }
     },
     "The Big Ballad": {
         "Full Song": {
-            "Lead": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", singers: ["Alex (Lead)"] },
-            "Backing Choir": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", singers: ["Everyone else"] }
+            "Lead": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "JGwWNGJdvx8", singers: ["Alex (Lead)"] },
+            "Backing Choir": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", youtubeId: "JGwWNGJdvx8", singers: ["Everyone else"] }
         }
     }
 };
@@ -27,6 +27,9 @@ const sectionSelect = document.getElementById('section-select');
 const voiceSelect = document.getElementById('voice-select');
 const audioPlayer = document.getElementById('audio-player');
 const singerInfo = document.getElementById('singer-info');
+const audioStatus = document.getElementById('audio-status');
+const youtubePlayer = document.getElementById('youtube-player');
+const videoSection = document.getElementById('video-section');
 
 // 3. Populate Dropdowns
 function populateSongs() {
@@ -66,6 +69,30 @@ function populateVoices() {
     updatePlayer();
 }
 
+function setAudioUnavailable(message) {
+    audioPlayer.src = '';
+    audioPlayer.hidden = true;
+    audioStatus.textContent = message;
+    audioStatus.hidden = false;
+}
+
+function setAudioAvailable(src) {
+    audioPlayer.src = src;
+    audioPlayer.hidden = false;
+    audioStatus.hidden = true;
+}
+
+function setVideoUnavailable() {
+    youtubePlayer.src = '';
+    videoSection.hidden = true;
+}
+
+function setVideoAvailable(videoId) {
+    const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+    youtubePlayer.src = embedUrl;
+    videoSection.hidden = false;
+}
+
 // 4. Update the Audio and Text
 function updatePlayer() {
     const currentSong = songSelect.value;
@@ -76,13 +103,29 @@ function updatePlayer() {
     if (!currentSong || !currentSection || !currentVoice) return;
 
     const trackData = musicData[currentSong][currentSection][currentVoice];
-    
-    // Format the Google Drive Direct Download Link
+
+    if (!trackData) {
+        setAudioUnavailable('No audio is available for this selection.');
+        setVideoUnavailable();
+        return;
+    }
+
     const driveBaseUrl = "https://drive.google.com/file/d/";
-    audioPlayer.src = driveBaseUrl + trackData.id + "/preview";
-    
+
+    if (trackData.id && typeof trackData.id === 'string' && trackData.id.trim() !== '') {
+        setAudioAvailable(driveBaseUrl + trackData.id + "/preview");
+    } else {
+        setAudioUnavailable('No audio is available for this selection.');
+    }
+
+    if (trackData.youtubeId && typeof trackData.youtubeId === 'string' && trackData.youtubeId.trim() !== '') {
+        setVideoAvailable(trackData.youtubeId);
+    } else {
+        setVideoUnavailable();
+    }
+
     // Update the singers text
-    singerInfo.textContent = trackData.singers.join(", ");
+    singerInfo.textContent = trackData.singers.join(', ');
 }
 
 // 5. Event Listeners (Cascade updates when a user changes a menu)
