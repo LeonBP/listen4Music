@@ -1,22 +1,22 @@
 // 1. Your Database
 // Replace the 'id' values with your actual Google Drive file IDs.
 const musicData = {
-    "Opening Number": {
-        "Verse 1": {
+    "Número de apertura": {
+        "Verso 1": {
             "Soprano": { id: "1aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
             "Alto": { id: "2aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
             "Tenor": { id: "3aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
         },
-        "Chorus": {
+        "Estribillo": {
             "Soprano": { id: "4aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
             "Alto": { id: "5aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
             "Tenor": { id: "6aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
         }
     },
-    "The Big Ballad": {
-        "Full Song": {
-            "Lead": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "JGwWNGJdvx8", singers: ["Alex (Lead)"] },
-            "Backing Choir": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", youtubeId: "JGwWNGJdvx8", singers: ["Everyone else"] }
+    "La gran balada": {
+        "Canción completa": {
+            "Principal": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "JGwWNGJdvx8", singers: ["Alex (Principal)"] },
+            "Coro de apoyo": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", youtubeId: "JGwWNGJdvx8", singers: ["Todos los demás"] }
         }
     }
 };
@@ -105,7 +105,7 @@ function updatePlayer() {
     const trackData = musicData[currentSong][currentSection][currentVoice];
 
     if (!trackData) {
-        setAudioUnavailable('No audio is available for this selection.');
+        setAudioUnavailable('No hay audio disponible para esta selección.');
         setVideoUnavailable();
         return;
     }
@@ -115,7 +115,7 @@ function updatePlayer() {
     if (trackData.id && typeof trackData.id === 'string' && trackData.id.trim() !== '') {
         setAudioAvailable(driveBaseUrl + trackData.id + "/preview");
     } else {
-        setAudioUnavailable('No audio is available for this selection.');
+        setAudioUnavailable('No hay audio disponible para esta selección.');
     }
 
     if (trackData.youtubeId && typeof trackData.youtubeId === 'string' && trackData.youtubeId.trim() !== '') {
