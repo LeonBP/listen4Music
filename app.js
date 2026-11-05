@@ -16,6 +16,15 @@ const FALLBACK_DATA = {
             "Principal": { audioUrl: "https://drive.google.com/file/d/7aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=4VGov1MFX_g", singers: ["Alex (Principal)"] },
             "Coro de apoyo": { audioUrl: "https://drive.google.com/file/d/1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR/view", videoUrl: "https://www.youtube.com/watch?v=JGwWNGJdvx8", singers: ["Todos los demás"] }
         }
+    },
+    "Prueba: video sin sección ni voz": {
+        "": {
+            "": {
+                audioUrl: "",
+                videoUrl: "https://www.youtube.com/watch?v=ScMzIvxBSi4",
+                singers: [" "]
+            }
+        }
     }
 };
 
@@ -256,9 +265,19 @@ function populateSongs() {
 function populateSections() {
     sectionSelect.innerHTML = '';
     const currentSong = songSelect.value;
-    if (!currentSong || !musicData[currentSong]) return;
+    if (!currentSong || !musicData[currentSong]) {
+        voiceSelect.innerHTML = '';
+        resetSelectionUI();
+        return;
+    }
 
     const sections = Object.keys(musicData[currentSong]);
+    if (!sections.length) {
+        voiceSelect.innerHTML = '';
+        resetSelectionUI();
+        return;
+    }
+
     sections.forEach((section) => {
         const option = document.createElement('option');
         option.value = section;
@@ -273,9 +292,23 @@ function populateVoices() {
     voiceSelect.innerHTML = '';
     const currentSong = songSelect.value;
     const currentSection = sectionSelect.value;
-    if (!currentSong || !currentSection || !musicData[currentSong]?.[currentSection]) return;
+    if (!currentSong || !musicData[currentSong]) {
+        resetSelectionUI();
+        return;
+    }
 
-    const voices = Object.keys(musicData[currentSong][currentSection]);
+    const currentSectionData = musicData[currentSong][currentSection];
+    if (currentSectionData === undefined) {
+        resetSelectionUI();
+        return;
+    }
+
+    const voices = Object.keys(currentSectionData);
+    if (!voices.length) {
+        resetSelectionUI();
+        return;
+    }
+
     voices.forEach((voice) => {
         const option = document.createElement('option');
         option.value = voice;
@@ -284,6 +317,30 @@ function populateVoices() {
     });
 
     updatePlayer();
+}
+
+function resolveTrackData(song, section, voice) {
+    if (!song || !musicData[song]) return null;
+
+    const songData = musicData[song];
+
+    if (songData?.[section]?.[voice] !== undefined) {
+        return songData[section][voice];
+    }
+
+    if (songData?.['']?.[''] !== undefined) {
+        return songData[''][''];
+    }
+
+    if (section !== undefined && songData?.[section]?.[''] !== undefined) {
+        return songData[section][''];
+    }
+
+    if (voice !== undefined && songData?.['']?.[voice] !== undefined) {
+        return songData[''][voice];
+    }
+
+    return null;
 }
 
 function setAudioUnavailable(message) {
@@ -309,19 +366,32 @@ function setVideoAvailable(embedUrl) {
     videoSection.hidden = false;
 }
 
+function resetSelectionUI() {
+    audioPlayer.src = '';
+    audioPlayer.hidden = true;
+    audioStatus.textContent = '';
+    audioStatus.hidden = true;
+
+    singerInfo.textContent = EMPTY_LABEL;
+
+    youtubePlayer.src = '';
+    videoSection.hidden = true;
+}
+
 // 4. Update the Audio and Text
 function updatePlayer() {
     const currentSong = songSelect.value;
     const currentSection = sectionSelect.value;
     const currentVoice = voiceSelect.value;
 
-    if (!currentSong || !currentSection || !currentVoice) return;
+    if (!currentSong || !musicData[currentSong]) {
+        resetSelectionUI();
+        return;
+    }
 
-    const trackData = musicData[currentSong]?.[currentSection]?.[currentVoice];
-
+    const trackData = resolveTrackData(currentSong, currentSection, currentVoice);
     if (!trackData) {
-        setAudioUnavailable('No hay audio disponible para esta selección.');
-        setVideoUnavailable();
+        resetSelectionUI();
         return;
     }
 
