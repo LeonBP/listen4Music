@@ -1,20 +1,26 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f4f9;
+    background-image: url("resources/portada.jpg");
+    background-position: top center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
     color: #333;
     margin: 0;
     padding: 20px;
     display: flex;
     justify-content: center;
+    min-height: 100vh;
 }
 
 .container {
-    background-color: #fff;
+    background-color: rgba(255, 255, 255, 0.9);
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     max-width: 500px;
     width: 100%;
+    backdrop-filter: blur(2px);
 }
 
 h1 {
