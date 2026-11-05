@@ -1,20 +1,20 @@
 const FALLBACK_DATA = {
     "Número de apertura": {
         "Verso 1": {
-            "Soprano": { id: "1aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
-            "Alto": { id: "2aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
-            "Tenor": { id: "3aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
+            "Soprano": { audioUrl: "https://drive.google.com/file/d/1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR/view?usp=drive_link", videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
+            "Alto": { audioUrl: "https://drive.google.com/file/d/2aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
+            "Tenor": { audioUrl: "https://drive.google.com/file/d/3aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=ScMzIvxBSi4", singers: ["Mike", "John"] }
         },
         "Estribillo": {
-            "Soprano": { id: "4aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
-            "Alto": { id: "5aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
-            "Tenor": { id: "6aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "ScMzIvxBSi4", singers: ["Mike", "John"] }
+            "Soprano": { audioUrl: "https://drive.google.com/file/d/4aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", singers: ["Sarah", "Emily", "Jessica"] },
+            "Alto": { audioUrl: "https://drive.google.com/file/d/5aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=ysz5S6PUM-U", singers: ["Amanda", "Rachel"] },
+            "Tenor": { audioUrl: "https://drive.google.com/file/d/6aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=ScMzIvxBSi4", singers: ["Mike", "John"] }
         }
     },
     "La gran balada": {
         "Canción completa": {
-            "Principal": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "4VGov1MFX_g", singers: ["Alex (Principal)"] },
-            "Coro de apoyo": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", youtubeId: "JGwWNGJdvx8", singers: ["Todos los demás"] }
+            "Principal": { audioUrl: "https://drive.google.com/file/d/7aBcDeFgHiJkLmNoPqRsTuVwXyZ/view", videoUrl: "https://www.youtube.com/watch?v=4VGov1MFX_g", singers: ["Alex (Principal)"] },
+            "Coro de apoyo": { audioUrl: "https://drive.google.com/file/d/1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR/view", videoUrl: "https://www.youtube.com/watch?v=JGwWNGJdvx8", singers: ["Todos los demás"] }
         }
     }
 };
@@ -109,6 +109,42 @@ function extractYouTubeId(value) {
     return text;
 }
 
+function extractDriveFileId(value) {
+    const text = normalizeText(value);
+    if (!text) return '';
+
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(text)) return text;
+
+    try {
+        const url = new URL(text);
+
+        const idFromQuery = url.searchParams.get('id');
+        if (idFromQuery && /^[a-zA-Z0-9_-]{20,}$/.test(idFromQuery)) {
+            return idFromQuery;
+        }
+
+        const parts = url.pathname.split('/').filter(Boolean);
+        const fileDIndex = parts.indexOf('d');
+        if (fileDIndex >= 0 && parts[fileDIndex + 1] && /^[a-zA-Z0-9_-]{20,}$/.test(parts[fileDIndex + 1])) {
+            return parts[fileDIndex + 1];
+        }
+    } catch (_) {
+        // no-op
+    }
+
+    return '';
+}
+
+function resolveAudioPreviewUrl(value) {
+    const fileId = extractDriveFileId(value);
+    return fileId ? `https://drive.google.com/file/d/${fileId}/preview` : '';
+}
+
+function resolveYouTubeEmbedUrl(value) {
+    const videoId = extractYouTubeId(value);
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1` : '';
+}
+
 function rowsToMusicData(rows) {
     const data = {};
 
@@ -118,8 +154,8 @@ function rowsToMusicData(rows) {
 
         const section = pickField(row, ['section', 'seccion', 'sectionname']);
         const voice = pickField(row, ['voice', 'voz', 'voicename']);
-        const id = pickField(row, ['id', 'grabacionid', 'recordingid', 'fileid', 'driveid']);
-        const youtubeId = extractYouTubeId(pickField(row, ['youtubeid', 'youtubecode', 'youtube']));
+        const audioUrl = pickField(row, ['audiourl', 'audio', 'enlaceaudio', 'linkaudio', 'grabacion', 'id', 'grabacionid', 'recordingid', 'fileid', 'driveid']);
+        const videoUrl = pickField(row, ['videourl', 'video', 'youtubeurl', 'enlaceyoutube', 'linkyoutube', 'youtubeid', 'youtubecode', 'youtube']);
         const singers = parseSingers(pickField(row, ['singers', 'singer', 'cantantes', 'reparto']));
 
         const sectionKey = section || '';
@@ -127,7 +163,7 @@ function rowsToMusicData(rows) {
 
         if (!data[song]) data[song] = {};
         if (!data[song][sectionKey]) data[song][sectionKey] = {};
-        data[song][sectionKey][voiceKey] = { id, youtubeId, singers };
+        data[song][sectionKey][voiceKey] = { audioUrl, videoUrl, singers };
     });
 
     return data;
@@ -268,8 +304,7 @@ function setVideoUnavailable() {
     videoSection.hidden = true;
 }
 
-function setVideoAvailable(videoId) {
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+function setVideoAvailable(embedUrl) {
     youtubePlayer.src = embedUrl;
     videoSection.hidden = false;
 }
@@ -290,16 +325,16 @@ function updatePlayer() {
         return;
     }
 
-    const driveBaseUrl = "https://drive.google.com/file/d/";
-
-    if (trackData.id && typeof trackData.id === 'string' && trackData.id.trim() !== '') {
-        setAudioAvailable(driveBaseUrl + trackData.id + "/preview");
+    const audioPreviewUrl = resolveAudioPreviewUrl(trackData.audioUrl || trackData.id);
+    if (audioPreviewUrl) {
+        setAudioAvailable(audioPreviewUrl);
     } else {
         setAudioUnavailable('No hay audio disponible para esta selección.');
     }
 
-    if (trackData.youtubeId && typeof trackData.youtubeId === 'string' && trackData.youtubeId.trim() !== '') {
-        setVideoAvailable(trackData.youtubeId);
+    const youtubeEmbedUrl = resolveYouTubeEmbedUrl(trackData.videoUrl || trackData.youtubeId);
+    if (youtubeEmbedUrl) {
+        setVideoAvailable(youtubeEmbedUrl);
     } else {
         setVideoUnavailable();
     }
