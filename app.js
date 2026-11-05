@@ -13,14 +13,13 @@ const FALLBACK_DATA = {
     },
     "La gran balada": {
         "Canción completa": {
-            "Principal": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "JGwWNGJdvx8", singers: ["Alex (Principal)"] },
+            "Principal": { id: "7aBcDeFgHiJkLmNoPqRsTuVwXyZ", youtubeId: "4VGov1MFX_g", singers: ["Alex (Principal)"] },
             "Coro de apoyo": { id: "1LGs6Fv-lQfxxFC6pgnqfvEN4mlKMSfbR", youtubeId: "JGwWNGJdvx8", singers: ["Todos los demás"] }
         }
     }
 };
 
-const SHEET_ID = "YOUR_GOOGLE_SHEET_ID";
-const SHEET_NAME = "Sheet1";
+const DATA_PATH = './resources/Voces - Principal.csv';
 
 let musicData = {};
 
@@ -38,137 +37,199 @@ function normalizeText(value) {
     return String(value ?? '').trim();
 }
 
+const EMPTY_LABEL = ' ';
+
+function normalizeHeader(value) {
+    return normalizeText(value)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+}
+
+function pickField(row, keys) {
+    for (const key of keys) {
+        const value = row[key];
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+            return String(value).trim();
+        }
+    }
+    return '';
+}
+
+function textForOption(value) {
+    return value && String(value).trim() ? String(value).trim() : EMPTY_LABEL;
+}
+
 function parseSingers(value) {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean);
+    if (!value) return [EMPTY_LABEL];
+    if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean).length ? value.map(item => String(item).trim()).filter(Boolean) : [EMPTY_LABEL];
 
     const text = String(value).trim();
-    if (!text) return [];
+    if (!text) return [EMPTY_LABEL];
 
     try {
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
-            return parsed.map(item => String(item).trim()).filter(Boolean);
+            const clean = parsed.map(item => String(item).trim()).filter(Boolean);
+            return clean.length ? clean : [EMPTY_LABEL];
         }
     } catch (_) {
         // Ignore invalid JSON and fall through to comma/semicolon splitting.
     }
 
-    return text
+    const values = text
         .split(/[;,]/)
         .map(item => item.trim())
         .filter(Boolean);
+
+    return values.length ? values : [EMPTY_LABEL];
+}
+
+function extractYouTubeId(value) {
+    const text = normalizeText(value);
+    if (!text) return '';
+
+    // ID directo
+    if (/^[a-zA-Z0-9_-]{11}$/.test(text)) return text;
+
+    // URL de YouTube
+    try {
+        const url = new URL(text);
+        const v = url.searchParams.get('v');
+        if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+
+        const parts = url.pathname.split('/').filter(Boolean);
+        const last = parts[parts.length - 1];
+        if (last && /^[a-zA-Z0-9_-]{11}$/.test(last)) return last;
+    } catch (_) {
+        // no-op
+    }
+
+    return text;
 }
 
 function rowsToMusicData(rows) {
     const data = {};
 
     rows.forEach((row) => {
-        const song = normalizeText(
-            row.song ?? row.Song ?? row['Canción'] ?? row['Song Name']
-        );
-        const section = normalizeText(
-            row.section ?? row.Section ?? row['Sección'] ?? row['Section Name']
-        );
-        const voice = normalizeText(
-            row.voice ?? row.Voice ?? row['Voz'] ?? row['Voice Name']
-        );
-        const id = normalizeText(
-            row.id ?? row.ID ?? row['Grabación ID'] ?? row['Recording ID'] ?? row['drive_id']
-        );
-        const youtubeId = normalizeText(
-            row.youtubeId ?? row['YouTube ID'] ?? row['youtube_id'] ?? row['youtubeid']
-        );
-        const singers = parseSingers(
-            row.singers ?? row.Singer ?? row.Singers ?? row['Cantantes'] ?? row['Reparto']
-        );
+        const song = pickField(row, ['song', 'cancion', 'songname']);
+        if (!song) return;
 
-        if (!song || !section || !voice) return;
+        const section = pickField(row, ['section', 'seccion', 'sectionname']);
+        const voice = pickField(row, ['voice', 'voz', 'voicename']);
+        const id = pickField(row, ['id', 'grabacionid', 'recordingid', 'fileid', 'driveid']);
+        const youtubeId = extractYouTubeId(pickField(row, ['youtubeid', 'youtubecode', 'youtube']));
+        const singers = parseSingers(pickField(row, ['singers', 'singer', 'cantantes', 'reparto']));
+
+        const sectionKey = section || '';
+        const voiceKey = voice || '';
 
         if (!data[song]) data[song] = {};
-        if (!data[song][section]) data[song][section] = {};
-
-        data[song][section][voice] = { id, youtubeId, singers };
+        if (!data[song][sectionKey]) data[song][sectionKey] = {};
+        data[song][sectionKey][voiceKey] = { id, youtubeId, singers };
     });
 
     return data;
 }
 
-async function loadMusicData() {
-    const sheetId = SHEET_ID.trim();
-    const sheetName = SHEET_NAME.trim();
+function parseCsvLine(line) {
+    const out = [];
+    let current = '';
+    let inQuotes = false;
 
-    if (!sheetId || sheetId === 'YOUR_GOOGLE_SHEET_ID') {
-        musicData = FALLBACK_DATA;
-        populateSongs();
-        return;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === ',' && !inQuotes) {
+            out.push(current);
+            current = '';
+        } else {
+            current += ch;
+        }
     }
+    out.push(current);
+    return out;
+}
 
+function csvToRows(csvText) {
+    const lines = csvText
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .filter(line => line.trim() !== '');
+
+    if (!lines.length) return [];
+
+    const headers = parseCsvLine(lines[0]).map(h => normalizeHeader(h));
+    return lines.slice(1).map((line) => {
+        const values = parseCsvLine(line);
+        const row = {};
+        headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
+        return row;
+    });
+}
+
+async function loadMusicData() {
     try {
-        audioStatus.textContent = 'Cargando música desde la hoja de Google...';
+        audioStatus.textContent = 'Cargando música desde el archivo local...';
         audioStatus.hidden = false;
 
-        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
-        const response = await fetch(url);
+        const res = await fetch(`${DATA_PATH}?v=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const text = await response.text();
-        const jsonStart = text.indexOf('{');
-        const jsonEnd = text.lastIndexOf('}');
-        const jsonText = text.slice(jsonStart, jsonEnd + 1);
-
-        const parsed = JSON.parse(jsonText);
-        const rows = (parsed.table?.rows ?? []).map((row) => {
-            const result = {};
-            (parsed.table?.cols ?? []).forEach((col, index) => {
-                const value = row.c?.[index];
-                result[col.label || col.id] = value && value.v !== undefined ? value.v : '';
-            });
-            return result;
-        });
-
+        const csvText = await res.text();
+        const rows = csvToRows(csvText);
         const loadedData = rowsToMusicData(rows);
 
-        if (Object.keys(loadedData).length > 0) {
-            musicData = loadedData;
-        } else {
-            throw new Error('No data found in the Google Sheet.');
+        if (!Object.keys(loadedData).length) {
+            throw new Error('El CSV no tiene filas válidas.');
         }
+
+        musicData = loadedData;
+        audioStatus.hidden = true;
     } catch (error) {
-        console.warn('Falling back to local demo data:', error);
+        console.warn('No se pudo leer el CSV local, usando fallback:', error);
         musicData = FALLBACK_DATA;
+        audioStatus.textContent = 'No se pudo cargar la información del archivo local. Revisa la ruta de resources/Voces - Principal.csv.';
+        audioStatus.hidden = false;
     } finally {
         populateSongs();
-        if (Object.keys(musicData).length) {
-            audioStatus.hidden = true;
-        }
     }
 }
 
 // 3. Populate Dropdowns
 function populateSongs() {
     songSelect.innerHTML = '';
-    for (let song in musicData) {
-        let option = document.createElement('option');
+    const songs = Object.keys(musicData || {});
+    songs.forEach((song) => {
+        const option = document.createElement('option');
         option.value = song;
         option.textContent = song;
         songSelect.appendChild(option);
-    }
+    });
     populateSections();
 }
 
 function populateSections() {
     sectionSelect.innerHTML = '';
     const currentSong = songSelect.value;
-    for (let section in musicData[currentSong]) {
-        let option = document.createElement('option');
+    if (!currentSong || !musicData[currentSong]) return;
+
+    const sections = Object.keys(musicData[currentSong]);
+    sections.forEach((section) => {
+        const option = document.createElement('option');
         option.value = section;
-        option.textContent = section;
+        option.textContent = textForOption(section);
         sectionSelect.appendChild(option);
-    }
+    });
+
     populateVoices();
 }
 
@@ -176,13 +237,16 @@ function populateVoices() {
     voiceSelect.innerHTML = '';
     const currentSong = songSelect.value;
     const currentSection = sectionSelect.value;
+    if (!currentSong || !currentSection || !musicData[currentSong]?.[currentSection]) return;
 
-    for (let voice in musicData[currentSong][currentSection]) {
-        let option = document.createElement('option');
+    const voices = Object.keys(musicData[currentSong][currentSection]);
+    voices.forEach((voice) => {
+        const option = document.createElement('option');
         option.value = voice;
-        option.textContent = voice;
+        option.textContent = textForOption(voice);
         voiceSelect.appendChild(option);
-    }
+    });
+
     updatePlayer();
 }
 
@@ -242,7 +306,11 @@ function updatePlayer() {
 
     singerInfo.textContent = (trackData.singers && trackData.singers.length)
         ? trackData.singers.join(', ')
-        : 'Selecciona una pista para ver el reparto.';
+        : EMPTY_LABEL;
+
+    if (Array.isArray(trackData.singers) && trackData.singers.length === 1 && trackData.singers[0] === EMPTY_LABEL) {
+        singerInfo.textContent = EMPTY_LABEL;
+    }
 }
 
 // 5. Event Listeners (Cascade updates when a user changes a menu)
