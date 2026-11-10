@@ -28,7 +28,8 @@ const FALLBACK_DATA = {
     }
 };
 
-const DATA_PATH = './resources/Voces - Principal.csv';
+const GOOGLE_SHEET_ID = '1-1b4O4JavPztdjPwxPdreMe2C-N-DxIKcLTYae9fcAs';
+const GOOGLE_SHEET_GID = '0';
 
 let musicData = {};
 
@@ -178,71 +179,90 @@ function rowsToMusicData(rows) {
     return data;
 }
 
-function parseCsvLine(line) {
-    const out = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-                current += '"';
-                i++;
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (ch === ',' && !inQuotes) {
-            out.push(current);
-            current = '';
-        } else {
-            current += ch;
-        }
+function googleSheetsToRows(response) {
+    if (response.status !== 'ok' || !response.table) {
+        throw new Error(response.errors?.[0]?.detailed_message || 'Google Sheets no devolvió una tabla válida.');
     }
-    out.push(current);
-    return out;
+
+    const headers = response.table.cols.map((column, index) =>
+        normalizeHeader(column.label || column.id || `column${index}`)
+    );
+
+    return response.table.rows.map(row => {
+        const values = row.c || [];
+        const parsedRow = {};
+        headers.forEach((header, index) => {
+            parsedRow[header] = values[index]?.v ?? '';
+        });
+        return parsedRow;
+    });
 }
 
-function csvToRows(csvText) {
-    const lines = csvText
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
-        .split('\n')
-        .filter(line => line.trim() !== '');
+function loadGoogleSheetRows() {
+    return new Promise((resolve, reject) => {
+        const previousGoogle = window.google;
+        const script = document.createElement('script');
+        const params = new URLSearchParams({
+            tqx: 'out:json',
+            gid: GOOGLE_SHEET_GID,
+            headers: '1',
+            v: Date.now().toString()
+        });
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+            script.remove();
+            if (previousGoogle === undefined) {
+                delete window.google;
+            } else {
+                window.google = previousGoogle;
+            }
+        };
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('Se agotó el tiempo de espera de Google Sheets.'));
+        }, 15000);
 
-    if (!lines.length) return [];
-
-    const headers = parseCsvLine(lines[0]).map(h => normalizeHeader(h));
-    return lines.slice(1).map((line) => {
-        const values = parseCsvLine(line);
-        const row = {};
-        headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
-        return row;
+        window.google = {
+            visualization: {
+                Query: {
+                    setResponse: response => {
+                        try {
+                            cleanup();
+                            resolve(googleSheetsToRows(response));
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }
+                }
+            }
+        };
+        script.src = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?${params}`;
+        script.onerror = () => {
+            cleanup();
+            reject(new Error('No se pudo acceder a Google Sheets.'));
+        };
+        document.head.appendChild(script);
     });
 }
 
 async function loadMusicData() {
     try {
-        audioStatus.textContent = 'Cargando música desde el archivo local...';
+        audioStatus.textContent = 'Cargando música desde Google Sheets...';
         audioStatus.hidden = false;
 
-        const res = await fetch(`${DATA_PATH}?v=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const csvText = await res.text();
-        const rows = csvToRows(csvText);
+        const rows = await loadGoogleSheetRows();
         const loadedData = rowsToMusicData(rows);
 
         if (!Object.keys(loadedData).length) {
-            throw new Error('El CSV no tiene filas válidas.');
+            throw new Error('Google Sheets no tiene filas válidas.');
         }
 
         musicData = loadedData;
         audioStatus.hidden = true;
     } catch (error) {
-        console.warn('No se pudo leer el CSV local, usando fallback:', error);
+        console.warn('No se pudo leer Google Sheets, usando fallback:', error);
         musicData = FALLBACK_DATA;
-        audioStatus.textContent = 'No se pudo cargar la información del archivo local. Revisa la ruta de resources/Voces - Principal.csv.';
+        audioStatus.textContent = 'No se pudo cargar la información de Google Sheets. Comprueba que el archivo sea visible para cualquiera con el enlace y que el GID de la pestaña sea correcto.';
         audioStatus.hidden = false;
     } finally {
         populateSongs();
